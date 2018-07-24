@@ -1,0 +1,115 @@
+---
+title: "Random Forest TCC"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Random Forest with 8 variables and NO normalization 
+```{r}
+TCC <- read.csv(file = "C:/users/arifr/Downloads/TCC.csv", header=TRUE)
+str(TCC)
+summary(TCC)
+```
+#Use correlation to reduce the # of attributes 
+```{r}
+correlation <- cor(TCC, method = "spearman")
+corrplot::corrplot(correlation)
+```
+#After plotting correlation variables were reduced from 24 to 8
+```{r}
+new_df <- TCC[-c(5:7,9:13,15:19,21:23)]
+new_df
+str(new_df)
+summary(new_df)
+```
+#Convert categorical variables to factors
+```{r}
+F=c(2,3,4,5,8)
+for(i in F) new_df[,i]=as.factor(new_df[,i])
+str(new_df)
+```
+#Create Train and Testing dataset
+#we train 70% (21000) and test 30% (9000)  
+#target variable default used in Y 
+```{r}
+library(caTools)
+newdf_split <-sample.split(Y = new_df$default, SplitRatio = 0.7)
+traindf <- new_df[newdf_split,]
+testdf <- new_df[!newdf_split,]
+```
+#Random Forest using training data
+#mtry # of variables selected at each split 
+#OOB (out of bag rate = misclassification rate)
+#Each decision tree is tested on 1/3 of number of observations and not used in building tree
+```{r}
+rf_model <-randomForest(default ~ ., data = traindf, mtry=3, ntree=500)
+rf_model
+
+```
+#Evaluate the model 
+#higher the value of mean decrease accuracy or mean gini score, higher the importance of the variable. Bill_AMT3 is the most important.
+#Mean Decrease Accuracy - how much the model accuracy decreases if we drop the variable. 
+#Mean Decrease Gini - measure of variable importance based on the Gini impurity index used for the calculation of split in trees. 
+```{r}
+importance(rf_model)
+varImpPlot(rf_model)
+```
+#Predictions using Testing dataset
+
+```{r}
+predict_Class <- predict(rf_model, testdf, type = "class")
+t <- table(predictions=predict_Class, actual=testdf$default)
+t
+#Accuracy of 0.78 or 78% 
+sum(diag(t))/sum(t)
+```
+#plotting ROC curve and calculating AUC metric 
+```{r}
+library(pROC)
+library(ROCR)
+Predict_Probs <- predict(rf_model, testdf, type = "prob")
+
+auc <- auc(testdf$default, Predict_Probs[,2])
+plot(roc(testdf$default, Predict_Probs[,2]))
+
+
+
+perf = prediction(Predict_Probs[,2], testdf$default)
+
+auc = performance(perf, "auc")
+
+pred1 = performance(perf, "tpr", "fpr")
+
+plot(pred1, main = "ROC Random Forest", col = 2, lwd = 2)
+abline(a=0, b=1, lwd=2, lty=2, col="gray")
+
+```
+#best mtry
+#best mtry is 2 with 0% OOB
+```{r}
+best_mtry <-tuneRF(traindf, traindf$default, ntreeTry = 500, stepFactor = 1.5, improve = 0.01, trace = TRUE, plot = TRUE)
+best_mtry
+```
+#Try with mtry = 2
+#Decreases the OOB rate from 22.03% to 21.11%
+```{r}
+rf_model_2 <-randomForest(default ~ ., data = traindf, mtry=2, ntree=500)
+rf_model_2
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
